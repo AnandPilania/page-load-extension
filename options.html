@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Performance Tracker - Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setting-item {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .setting-item:hover {
+            border-color: #667eea;
+            background: #edf2f7;
+        }
+
+        .setting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .setting-label {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .setting-description {
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 56px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e0;
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked+.toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(28px);
+        }
+
+        .input-group {
+            margin-top: 12px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+
+        textarea,
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        textarea:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-reset {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-reset:hover {
+            background: #cbd5e0;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #48bb78;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.show {
+            display: flex;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 8px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="color"] {
+            width: 60px;
+            height: 40px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .preset-colors {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .preset-color {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .preset-color:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span>⚡</span> Performance Tracker Settings</h1>
+            <p>Customize your performance monitoring experience</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <div class="section-title">
+                    🎯 General Settings
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Enable Floating Button</div>
+                            <div class="setting-description">Show the ⚡ button on every page after load</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableFab" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Auto-Track Performance</div>
+                            <div class="setting-description">Automatically capture metrics on every page load</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoTrack" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Show Performance Score</div>
+                            <div class="setting-description">Display 0-100 performance score in overlay</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="showScore" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Console Logging</div>
+                            <div class="setting-description">Log performance metrics to browser console</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="consoleLog">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    🚫 Website Exclusions
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Disable on Specific Sites</div>
+                            <div class="setting-description">Extension won't run on these URLs (one per line)</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <textarea id="blockedSites"
+                            placeholder="https://example.com&#10;https://another-site.com&#10;*.google.com"></textarea>
+                        <div class="help-text">Supports wildcards (*). Example: *.google.com,
+                            https://example.com/admin/*</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    🎨 Appearance
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Floating Button Position</div>
+                            <div class="setting-description">Where to display the floating button</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <select id="fabPosition">
+                            <option value="bottom-right">Bottom Right</option>
+                            <option value="bottom-left">Bottom Left</option>
+                            <option value="top-right">Top Right</option>
+                            <option value="top-left">Top Left</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Button Color Theme</div>
+                            <div class="setting-description">Customize the floating button gradient</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <div class="color-picker">
+                            <div>
+                                <div class="input-label">Start Color</div>
+                                <input type="color" id="colorStart" value="#667eea">
+                            </div>
+                            <div>
+                                <div class="input-label">End Color</div>
+                                <input type="color" id="colorEnd" value="#764ba2">
+                            </div>
+                        </div>
+                        <div class="preset-colors">
+                            <div class="preset-color"
+                                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
+                                data-start="#667eea" data-end="#764ba2"></div>
+                            <div class="preset-color"
+                                style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+                                data-start="#f093fb" data-end="#f5576c"></div>
+                            <div class="preset-color"
+                                style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
+                                data-start="#4facfe" data-end="#00f2fe"></div>
+                            <div class="preset-color"
+                                style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"
+                                data-start="#43e97b" data-end="#38f9d7"></div>
+                            <div class="preset-color"
+                                style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"
+                                data-start="#fa709a" data-end="#fee140"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Overlay Position</div>
+                            <div class="setting-description">Where the performance panel slides in from</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <select id="overlayPosition">
+                            <option value="right">Slide from Right</option>
+                            <option value="left">Slide from Left</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    ⚙️ Advanced Settings
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">History Limit</div>
+                            <div class="setting-description">Maximum number of page loads to store</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="historyLimit" min="10" max="1000" value="100">
+                        <div class="help-text">Default: 100. Higher values use more storage.</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Performance Thresholds</div>
+                            <div class="setting-description">Customize when metrics show as good/medium/bad</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">Load Time (ms) - Good / Warning</div>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="loadGood" placeholder="1000" style="flex: 1;">
+                            <input type="number" id="loadWarning" placeholder="3000" style="flex: 1;">
+                        </div>
+                        <div class="help-text">Default: 1000ms (good), 3000ms (warning)</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Keyboard Shortcut<span class="badge">Experimental</span></div>
+                            <div class="setting-description">Custom shortcut to toggle overlay (requires reload)</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <select id="shortcutKey">
+                            <option value="P">Ctrl/Cmd + Shift + P</option>
+                            <option value="M">Ctrl/Cmd + Shift + M</option>
+                            <option value="K">Ctrl/Cmd + Shift + K</option>
+                            <option value="L">Ctrl/Cmd + Shift + L</option>
+                        </select>
+                        <div class="help-text">Reload extension after changing</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-save" id="saveBtn">💾 Save Settings</button>
+                <button class="btn-reset" id="resetBtn">🔄 Reset to Defaults</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <span>✓</span>
+        <span>Settings saved successfully!</span>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+
+</html>
