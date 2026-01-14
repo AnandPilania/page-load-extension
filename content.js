@@ -1,19 +1,151 @@
 (function () {
     let metricsData = null;
     let overlayVisible = false;
+    let settings = {
+        enableFab: true,
+        autoTrack: true,
+        showScore: true,
+        consoleLog: false,
+        extensionMode: 'allowlist',
+        allowedSites: ['*.niitmtscrm.com', '*.niitls.com', '*.test'],
+        blockedSites: [],
+        fabPosition: 'bottom-right',
+        colorStart: '#667eea',
+        colorEnd: '#764ba2',
+        overlayPosition: 'right',
+        historyLimit: 100,
+        loadGood: 1000,
+        loadWarning: 3000,
+        shortcutKey: 'P'
+    };
+
+    async function loadSettings() {
+        try {
+            const stored = await chrome.storage.sync.get(settings);
+            settings = { ...settings, ...stored };
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    function isSiteAllowed() {
+        const currentUrl = window.location.href;
+        
+        if (settings.extensionMode === 'all') {
+            return true; 
+        }
+        
+        if (settings.extensionMode === 'allowlist') {
+            return settings.allowedSites.some(pattern => {
+                if (pattern.includes('*')) {
+                    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+                    return regex.test(currentUrl);
+                }
+                return currentUrl.includes(pattern);
+            });
+        }
+        
+        if (settings.extensionMode === 'blocklist') {
+            return !settings.blockedSites.some(pattern => {
+                if (pattern.includes('*')) {
+                    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+                    return regex.test(currentUrl);
+                }
+                return currentUrl.includes(pattern);
+            });
+        }
+        
+        return false;
+    }
+
+    function getHttpVersion(protocol) {
+        if (!protocol) return 'Unknown';
+        if (protocol.includes('1.1')) return 'HTTP/1.1';
+        if (protocol.includes('2')) return 'HTTP/2';
+        if (protocol.includes('3')) return 'HTTP/3';
+        return protocol;
+    }
+
+    function identifyBottlenecks(navigationEntry, resources) {
+        const bottlenecks = [];
+        
+        const dnsTime = navigationEntry.domainLookupEnd - navigationEntry.domainLookupStart;
+        if (dnsTime > 100) {
+            bottlenecks.push({ type: 'DNS', time: dnsTime, severity: dnsTime > 300 ? 'high' : 'medium' });
+        }
+        
+        const connectTime = navigationEntry.connectEnd - navigationEntry.connectStart;
+        if (connectTime > 200) {
+            bottlenecks.push({ type: 'Connection', time: connectTime, severity: connectTime > 500 ? 'high' : 'medium' });
+        }
+        
+        const serverTime = navigationEntry.responseStart - navigationEntry.requestStart;
+        if (serverTime > 500) {
+            bottlenecks.push({ type: 'Server Response', time: serverTime, severity: serverTime > 2000 ? 'high' : 'medium' });
+        }
+        
+        const slowResources = resources.filter(r => r.duration > 1000).slice(0, 3);
+        slowResources.forEach(resource => {
+            bottlenecks.push({ 
+                type: 'Slow Resource', 
+                name: resource.name.split('/').pop(), 
+                time: Math.round(resource.duration), 
+                severity: resource.duration > 3000 ? 'high' : 'medium' 
+            });
+        });
+        
+        return bottlenecks;
+    }
+
+    function calculateCacheHitRate(resources) {
+        const totalResources = resources.length;
+        if (totalResources === 0) return 0;
+        
+        const cachedResources = resources.filter(r => {
+            return r.transferSize === 0 && r.decodedBodySize > 0;
+        }).length;
+        
+        return Math.round((cachedResources / totalResources) * 100);
+    }
+
+    function checkMixedContent() {
+        if (window.location.protocol !== 'https:') return false;
+        
+        const images = document.images;
+        const scripts = document.scripts;
+        const links = document.links;
+        
+        for (let img of images) {
+            if (img.src && img.src.startsWith('http:')) return true;
+        }
+        
+        for (let script of scripts) {
+            if (script.src && script.src.startsWith('http:')) return true;
+        }
+        
+        for (let link of links) {
+            if (link.href && link.href.startsWith('http:')) return true;
+        }
+        
+        return false;
+    }
 
     function capturePerformance() {
         if (!performance) {
-            console.log('Performance API not available');
+            if (settings.consoleLog) console.log('Performance API not available');
             return;
         }
 
         window.addEventListener('load', () => {
-            setTimeout(() => {
+            setTimeout(async () => {
+                if (!isSiteAllowed() || !settings.autoTrack) {
+                    if (settings.consoleLog) console.log('Performance tracking disabled for this site');
+                    return;
+                }
                 const navigationEntry = performance.getEntriesByType('navigation')[0];
 
                 if (!navigationEntry) {
-                    console.log('Navigation timing not available');
+                    if (settings.consoleLog) console.log('Navigation timing not available');
                     return;
                 }
 
@@ -96,6 +228,8 @@
 
                     resourceCount: resources.length,
                     resourcesByType: resourcesByType,
+                    slowResources: resources.filter(r => r.duration > 1000).length,
+                    failedResources: resources.filter(r => r.responseStatus >= 400).length,
 
                     totalTransferSize: totalResourceSize + (navigationEntry.transferSize || 0),
                     totalEncodedSize: totalEncodedSize + (navigationEntry.encodedBodySize || 0),
@@ -110,32 +244,14 @@
 
                     navigationType: navigationEntry.type || 'unknown',
                     redirectCount: navigationEntry.redirectCount || 0,
-
                     protocol: navigationEntry.nextHopProtocol || 'unknown',
-
-                    resourceCount: resources.length,
-                    resourcesByType: resourcesByType,
-
-                    totalTransferSize: totalResourceSize + (navigationEntry.transferSize || 0),
-                    totalEncodedSize: totalEncodedSize + (navigationEntry.encodedBodySize || 0),
-                    totalDecodedSize: totalDecodedSize + (navigationEntry.decodedBodySize || 0),
-                    documentTransferSize: navigationEntry.transferSize || 0,
-                    documentEncodedSize: navigationEntry.encodedBodySize || 0,
-                    documentDecodedSize: navigationEntry.decodedBodySize || 0,
-
-                    compressionRatio: totalDecodedSize > 0
-                        ? ((totalDecodedSize - totalEncodedSize) / totalDecodedSize * 100).toFixed(1)
-                        : 0,
-
-                    navigationType: navigationEntry.type || 'unknown',
-                    redirectCount: navigationEntry.redirectCount || 0,
-
-                    protocol: navigationEntry.nextHopProtocol || 'unknown',
+                    httpVersion: getHttpVersion(navigationEntry.nextHopProtocol),
 
                     memory: performance.memory ? {
                         usedJSHeapSize: performance.memory.usedJSHeapSize,
                         totalJSHeapSize: performance.memory.totalJSHeapSize,
-                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+                        heapUsagePercent: ((performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit) * 100).toFixed(1)
                     } : null,
 
                     connectionInfo: navigator.connection ? {
@@ -143,7 +259,43 @@
                         downlink: navigator.connection.downlink,
                         rtt: navigator.connection.rtt,
                         saveData: navigator.connection.saveData
-                    } : null
+                    } : null,
+
+                    renderTime: Math.round(navigationEntry.loadEventEnd - navigationEntry.domContentLoadedEventEnd),
+                    backendTime: Math.round(navigationEntry.responseStart - navigationEntry.fetchStart),
+                    frontendTime: Math.round(navigationEntry.loadEventEnd - navigationEntry.responseStart),
+                    domNodes: document.getElementsByTagName('*').length,
+                    imagesCount: document.images.length,
+                    scriptsCount: document.scripts.length,
+                    stylesheetsCount: document.styleSheets.length,
+                    iframesCount: document.getElementsByTagName('iframe').length,
+
+                    bottlenecks: identifyBottlenecks(navigationEntry, resources),
+
+                    cacheHitRate: calculateCacheHitRate(resources),
+
+                    isSecure: window.location.protocol === 'https:',
+                    hasMixedContent: checkMixedContent(),
+
+                    userAgent: navigator.userAgent,
+                    viewport: {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    },
+                    devicePixelRatio: window.devicePixelRatio || 1,
+
+                    timingBreakdown: {
+                        dns: Math.round(navigationEntry.domainLookupEnd - navigationEntry.domainLookupStart),
+                        tcp: Math.round(navigationEntry.connectEnd - navigationEntry.connectStart),
+                        ssl: navigationEntry.secureConnectionStart > 0 
+                            ? Math.round(navigationEntry.connectEnd - navigationEntry.secureConnectionStart) 
+                            : 0,
+                        ttfb: Math.round(navigationEntry.responseStart - navigationEntry.requestStart),
+                        download: Math.round(navigationEntry.responseEnd - navigationEntry.responseStart),
+                        domParse: Math.round(navigationEntry.domInteractive - navigationEntry.responseEnd),
+                        domReady: Math.round(navigationEntry.domContentLoadedEventEnd - navigationEntry.domInteractive),
+                        load: Math.round(navigationEntry.loadEventEnd - navigationEntry.domContentLoadedEventEnd)
+                    }
                 };
 
                 const paintEntries = performance.getEntriesByType('paint');
@@ -168,12 +320,18 @@
 
                 metricsData = metrics;
 
+                if (settings.consoleLog) {
+                    console.log('Performance metrics captured:', metrics);
+                }
+
                 chrome.runtime.sendMessage({
                     action: 'savePerformance',
                     data: metrics
                 });
 
-                createFloatingButton();
+                if (settings.enableFab) {
+                    createFloatingButton();
+                }
             }, 100);
         });
     }
@@ -181,17 +339,23 @@
     function createFloatingButton() {
         if (document.getElementById('perf-tracker-fab')) return;
 
+        const positions = {
+            'bottom-right': 'bottom: 30px; right: 30px;',
+            'bottom-left': 'bottom: 30px; left: 30px;',
+            'top-right': 'top: 30px; right: 30px;',
+            'top-left': 'top: 30px; left: 30px;'
+        };
+
         const fab = document.createElement('div');
         fab.id = 'perf-tracker-fab';
         fab.innerHTML = `
       <style>
         #perf-tracker-fab {
           position: fixed;
-          bottom: 30px;
-          right: 30px;
+          ${positions[settings.fabPosition]}
           width: 60px;
           height: 60px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, ${settings.colorStart} 0%, ${settings.colorEnd} 100%);
           border-radius: 50%;
           box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
           cursor: pointer;
@@ -219,7 +383,7 @@
         }
         #perf-tracker-fab .tooltip {
           position: absolute;
-          right: 70px;
+          ${settings.fabPosition.includes('right') ? 'right: 70px; left: auto;' : 'left: 70px; right: auto;'}
           background: rgba(0,0,0,0.9);
           color: white;
           padding: 8px 12px;
@@ -235,7 +399,7 @@
           opacity: 1;
         }
       </style>
-      <span class="tooltip">Performance Stats (Ctrl+Shift+P)</span>
+      <span class="tooltip">Performance Stats (Ctrl+Shift+${settings.shortcutKey})</span>
       ⚡
     `;
 
@@ -247,6 +411,10 @@
     function createOverlay() {
         if (document.getElementById('perf-tracker-overlay')) return;
 
+        const overlayPosition = settings.overlayPosition === 'left' 
+            ? 'left: 0; right: auto; box-shadow: 5px 0 30px rgba(0,0,0,0.2);'
+            : 'right: 0; left: auto; box-shadow: -5px 0 30px rgba(0,0,0,0.2);';
+
         const overlay = document.createElement('div');
         overlay.id = 'perf-tracker-overlay';
         overlay.innerHTML = `
@@ -254,11 +422,10 @@
         #perf-tracker-overlay {
           position: fixed;
           top: 0;
-          right: 0;
+          ${overlayPosition}
           width: 450px;
           height: 100vh;
           background: linear-gradient(180deg, #ffffff 0%, #f8f9ff 100%);
-          box-shadow: -5px 0 30px rgba(0,0,0,0.2);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
           z-index: 999999;
           overflow: hidden;
@@ -267,14 +434,18 @@
         #perf-tracker-overlay.visible {
           display: flex;
           flex-direction: column;
-          animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          animation: ${settings.overlayPosition === 'left' ? 'slideInLeft' : 'slideInRight'} 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
         @keyframes slideInRight {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
         }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
         .perf-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, ${settings.colorStart} 0%, ${settings.colorEnd} 100%);
           color: white;
           padding: 25px 20px;
           position: relative;
@@ -615,8 +786,8 @@
 
         function calculateScore() {
             let score = 100;
-            if (m.totalLoadTime > 3000) score -= 20;
-            else if (m.totalLoadTime > 1000) score -= 10;
+            if (m.totalLoadTime > settings.loadWarning) score -= 20;
+            else if (m.totalLoadTime > settings.loadGood) score -= 10;
 
             if (m.firstContentfulPaint > 2500) score -= 15;
             else if (m.firstContentfulPaint > 1000) score -= 7;
@@ -632,7 +803,7 @@
         quickStats.innerHTML = `
       <div class="perf-quick-grid">
         <div class="perf-quick-item">
-          <div class="perf-quick-value ${getColorClass(m.documentFinishTime, 1000, 3000)}">${(m.documentFinishTime / 1000).toFixed(2)}s</div>
+          <div class="perf-quick-value ${getColorClass(m.documentFinishTime, settings.loadGood, settings.loadWarning)}">${(m.documentFinishTime / 1000).toFixed(2)}s</div>
           <div class="perf-quick-label">Document Finish</div>
         </div>
         <div class="perf-quick-item">
@@ -647,19 +818,20 @@
     `;
 
         let html = `
+      ${settings.showScore ? `
       <div class="perf-section">
         <div class="perf-score">
           <div class="perf-score-value">${score}</div>
           <div class="perf-score-label">Performance Score</div>
         </div>
-      </div>
+      </div>` : ''}
 
       <div class="perf-section">
         <div class="perf-section-title">Core Web Vitals</div>
         <div class="perf-grid">
           <div class="perf-metric">
             <div class="perf-metric-label">Total Load</div>
-            <div class="perf-metric-value ${getColorClass(m.totalLoadTime, 1000, 3000)}">
+            <div class="perf-metric-value ${getColorClass(m.totalLoadTime, settings.loadGood, settings.loadWarning)}">
               ${m.totalLoadTime}<span class="perf-metric-unit">ms</span>
             </div>
             <div class="perf-progress-bar">
@@ -668,7 +840,7 @@
           </div>
           <div class="perf-metric">
             <div class="perf-metric-label">DOM Loaded</div>
-            <div class="perf-metric-value ${getColorClass(m.domContentLoadedTime, 800, 2000)}">
+            <div class="perf-metric-value ${getColorClass(m.domContentLoadedTime, settings.loadGood, settings.loadWarning)}">
               ${m.domContentLoadedTime}<span class="perf-metric-unit">ms</span>
             </div>
             <div class="perf-progress-bar">
@@ -806,29 +978,124 @@
 
       ${m.connectionInfo ? `
       <div class="perf-section">
-        <div class="perf-section-title">Connection Info</div>
+        <div class="perf-section-title">🌐 Connection & Environment</div>
         <div class="perf-grid">
           <div class="perf-metric">
             <div class="perf-metric-label">Network Type</div>
             <div class="perf-metric-value" style="font-size: 14px; text-transform: uppercase;">${m.connectionInfo.effectiveType}</div>
           </div>
           <div class="perf-metric">
-            <div class="perf-metric-label">Downlink Speed</div>
+            <div class="perf-metric-label">Downlink</div>
             <div class="perf-metric-value">${m.connectionInfo.downlink}<span class="perf-metric-unit">Mbps</span></div>
           </div>
           <div class="perf-metric">
-            <div class="perf-metric-label">Round Trip Time</div>
+            <div class="perf-metric-label">RTT</div>
             <div class="perf-metric-value">${m.connectionInfo.rtt}<span class="perf-metric-unit">ms</span></div>
           </div>
           <div class="perf-metric">
             <div class="perf-metric-label">Data Saver</div>
             <div class="perf-metric-value" style="font-size: 14px;">${m.connectionInfo.saveData ? 'ON' : 'OFF'}</div>
           </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Protocol</div>
+            <div class="perf-metric-value" style="font-size: 14px;">${m.httpVersion}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Security</div>
+            <div class="perf-metric-value ${m.isSecure ? 'good' : 'bad'}" style="font-size: 14px;">
+              ${m.isSecure ? '🔒 HTTPS' : '⚠️ HTTP'}
+              ${m.hasMixedContent ? ' (Mixed Content)' : ''}
+            </div>
+          </div>
         </div>
       </div>` : ''}
 
       <div class="perf-section">
-        <div class="perf-section-title">Resource Breakdown</div>
+        <div class="perf-section-title">🐛 Developer Metrics</div>
+        <div class="perf-grid">
+          <div class="perf-metric">
+            <div class="perf-metric-label">Backend Time</div>
+            <div class="perf-metric-value ${getColorClass(m.backendTime, 500, 1500)}">
+              ${m.backendTime}<span class="perf-metric-unit">ms</span>
+            </div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Frontend Time</div>
+            <div class="perf-metric-value ${getColorClass(m.frontendTime, 500, 1500)}">
+              ${m.frontendTime}<span class="perf-metric-unit">ms</span>
+            </div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">DOM Nodes</div>
+            <div class="perf-metric-value">${m.domNodes.toLocaleString()}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Images</div>
+            <div class="perf-metric-value">${m.imagesCount}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Scripts</div>
+            <div class="perf-metric-value">${m.scriptsCount}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Stylesheets</div>
+            <div class="perf-metric-value">${m.stylesheetsCount}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">iFrames</div>
+            <div class="perf-metric-value">${m.iframesCount}</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-metric-label">Cache Hit Rate</div>
+            <div class="perf-metric-value ${getColorClass(100 - m.cacheHitRate, 20, 50)}">
+              ${m.cacheHitRate}<span class="perf-metric-unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="perf-section">
+        <div class="perf-section-title">⚠️ Performance Issues</div>
+        <div class="perf-resource-list">
+          ${m.slowResources > 0 ? `
+            <div class="perf-resource-item">
+              <div class="perf-resource-type">
+                <span>🐌 Slow Resources</span>
+                <span class="perf-resource-badge">${m.slowResources}</span>
+              </div>
+              <div class="perf-resource-stats">Taking >1s each</div>
+            </div>
+          ` : ''}
+          ${m.failedResources > 0 ? `
+            <div class="perf-resource-item">
+              <div class="perf-resource-type">
+                <span>❌ Failed Resources</span>
+                <span class="perf-resource-badge" style="background: #e53e3e;">${m.failedResources}</span>
+              </div>
+              <div class="perf-resource-stats">HTTP 4xx/5xx</div>
+            </div>
+          ` : ''}
+          ${m.bottlenecks.length > 0 ? m.bottlenecks.map(bottleneck => `
+            <div class="perf-resource-item">
+              <div class="perf-resource-type">
+                <span>${bottleneck.severity === 'high' ? '🚨' : '⚠️'} ${bottleneck.type}</span>
+                <span class="perf-resource-badge" style="background: ${bottleneck.severity === 'high' ? '#e53e3e' : '#dd6b20'}">${bottleneck.time}ms</span>
+              </div>
+              <div class="perf-resource-stats">${bottleneck.name || 'Performance bottleneck'}</div>
+            </div>
+          `).join('') : `
+            <div class="perf-resource-item">
+              <div class="perf-resource-type">
+                <span>✅ No Bottlenecks</span>
+              </div>
+              <div class="perf-resource-stats">All metrics within acceptable ranges</div>
+            </div>
+          `}
+        </div>
+      </div>
+
+      <div class="perf-section">
+        <div class="perf-section-title">📊 Resource Breakdown</div>
         <div class="perf-resource-list">
           ${Object.entries(m.resourcesByType)
                 .sort((a, b) => b[1].count - a[1].count)
@@ -870,7 +1137,7 @@
     }
 
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === settings.shortcutKey) {
             e.preventDefault();
             toggleOverlay();
         }
@@ -879,8 +1146,22 @@
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'toggleOverlay') {
             toggleOverlay();
+        } else if (request.action === 'settingsChanged') {
+            loadSettings().then(() => {
+                const existingFab = document.getElementById('perf-tracker-fab');
+                if (existingFab) {
+                    existingFab.remove();
+                }
+                if (settings.enableFab && isSiteAllowed()) {
+                    createFloatingButton();
+                }
+            });
         }
     });
 
-    capturePerformance();
+    loadSettings().then(() => {
+        if (isSiteAllowed()) {
+            capturePerformance();
+        }
+    });
 })();

@@ -28,6 +28,10 @@
             font-size: 18px;
             font-weight: 600;
             margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .header p {
@@ -35,48 +39,82 @@
             opacity: 0.9;
         }
 
-        .header strong {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 6px;
-            border-radius: 3px;
+        .quick-controls {
+            background: white;
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .quick-controls h3 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #2d3748;
             font-weight: 600;
         }
 
-        .settings-footer {
-            text-align: center;
-            padding: 12px;
-            border-top: 1px solid #e2e8f0;
-            background: #f7fafc;
-        }
-
-        .settings-footer button {
-            background: none;
-            border: none;
-            color: #667eea;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
+        .toggle-row {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 6px;
-            margin: 0 auto;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: all 0.2s;
+            margin-bottom: 8px;
         }
 
-        .settings-footer button:hover {
-            background: rgba(102, 126, 234, 0.1);
-            transform: translateY(-1px);
+        .toggle-label {
+            font-size: 13px;
+            color: #4a5568;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e0;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(20px);
         }
 
         .content {
             padding: 15px;
-            max-height: 500px;
+            max-height: 400px;
             overflow-y: auto;
         }
 
-        .current-page {
+        .stats-summary {
             background: white;
             border-radius: 8px;
             padding: 15px;
@@ -84,50 +122,38 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        .current-page h2 {
+        .stats-summary h2 {
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             color: #667eea;
             font-weight: 600;
         }
 
-        .metric-grid {
+        .stats-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
         }
 
-        .metric {
-            background: #f7fafc;
+        .stat-item {
+            text-align: center;
             padding: 10px;
+            background: #f7fafc;
             border-radius: 6px;
-            border-left: 3px solid #667eea;
         }
 
-        .metric-label {
-            font-size: 11px;
-            color: #718096;
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
             margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #718096;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-
-        .metric-value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        .metric-value.good {
-            color: #48bb78;
-        }
-
-        .metric-value.medium {
-            color: #ed8936;
-        }
-
-        .metric-value.bad {
-            color: #f56565;
         }
 
         .history {
@@ -170,7 +196,7 @@
 
         .history-stats {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             font-size: 11px;
             color: #718096;
         }
@@ -200,21 +226,21 @@
             transition: all 0.2s;
         }
 
-        .btn-refresh {
+        .btn-primary {
             background: #667eea;
             color: white;
         }
 
-        .btn-refresh:hover {
+        .btn-primary:hover {
             background: #5a67d8;
         }
 
-        .btn-clear {
+        .btn-secondary {
             background: #e2e8f0;
             color: #4a5568;
         }
 
-        .btn-clear:hover {
+        .btn-secondary:hover {
             background: #cbd5e0;
         }
 
@@ -235,29 +261,81 @@
             color: #a0aec0;
             font-size: 13px;
         }
+
+        .settings-footer {
+            text-align: center;
+            padding: 12px;
+            border-top: 1px solid #e2e8f0;
+            background: #f7fafc;
+        }
+
+        .settings-footer button {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 auto;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .settings-footer button:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h1>⚡ Performance Tracker</h1>
-        <p>Press <strong>Ctrl+Shift+P</strong> (or Cmd+Shift+P on Mac) on any page</p>
+        <h1><span>⚡</span> Performance History</h1>
+        <p>Track performance across all websites</p>
+    </div>
+
+    <div class="quick-controls">
+        <h3>Quick Controls</h3>
+        <div class="toggle-row">
+            <span class="toggle-label">Enable Floating Button</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="quickEnableFab">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Auto-Track Performance</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="quickAutoTrack">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Show Performance Score</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="quickShowScore">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
     </div>
 
     <div class="content" id="content">
-        <div class="loading">Loading data...</div>
+        <div class="loading">Loading performance history...</div>
     </div>
 
     <div class="controls">
-        <button class="btn-refresh" id="refreshBtn">Refresh</button>
-        <button class="btn-clear" id="clearBtn">Clear History</button>
+        <button class="btn-primary" id="refreshBtn">Refresh</button>
+        <button class="btn-secondary" id="clearBtn">Clear History</button>
     </div>
 
-    <div style="text-align: center; padding: 12px; border-top: 1px solid #e2e8f0; background: #f7fafc;">
-        <button id="settingsBtn"
-            style="background: none; border: none; color: #667eea; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin: 0 auto;">
+    <div class="settings-footer">
+        <button id="settingsBtn">
             <span>⚙️</span>
-            <span>Settings</span>
+            <span>Advanced Settings</span>
         </button>
     </div>
 

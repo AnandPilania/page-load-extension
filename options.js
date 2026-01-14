@@ -3,6 +3,8 @@ const DEFAULT_SETTINGS = {
     autoTrack: true,
     showScore: true,
     consoleLog: false,
+    extensionMode: 'allowlist',
+    allowedSites: ['*.niitmtscrm.com', '*.niitls.com', '*.test'],
     blockedSites: [],
     fabPosition: 'bottom-right',
     colorStart: '#667eea',
@@ -21,6 +23,8 @@ async function loadSettings() {
     document.getElementById('autoTrack').checked = settings.autoTrack;
     document.getElementById('showScore').checked = settings.showScore;
     document.getElementById('consoleLog').checked = settings.consoleLog;
+    document.getElementById('extensionMode').value = settings.extensionMode;
+    document.getElementById('allowedSites').value = settings.allowedSites.join('\n');
     document.getElementById('blockedSites').value = settings.blockedSites.join('\n');
     document.getElementById('fabPosition').value = settings.fabPosition;
     document.getElementById('colorStart').value = settings.colorStart;
@@ -30,6 +34,9 @@ async function loadSettings() {
     document.getElementById('loadGood').value = settings.loadGood;
     document.getElementById('loadWarning').value = settings.loadWarning;
     document.getElementById('shortcutKey').value = settings.shortcutKey;
+
+    // Show/hide appropriate sections based on mode
+    toggleAccessModeSections(settings.extensionMode);
 }
 
 async function saveSettings() {
@@ -39,11 +46,19 @@ async function saveSettings() {
         .map(line => line.trim())
         .filter(line => line.length > 0);
 
+    const allowedSitesText = document.getElementById('allowedSites').value;
+    const allowedSites = allowedSitesText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
     const settings = {
         enableFab: document.getElementById('enableFab').checked,
         autoTrack: document.getElementById('autoTrack').checked,
         showScore: document.getElementById('showScore').checked,
         consoleLog: document.getElementById('consoleLog').checked,
+        extensionMode: document.getElementById('extensionMode').value,
+        allowedSites: allowedSites,
         blockedSites: blockedSites,
         fabPosition: document.getElementById('fabPosition').value,
         colorStart: document.getElementById('colorStart').value,
@@ -56,6 +71,15 @@ async function saveSettings() {
     };
 
     await chrome.storage.sync.set(settings);
+    
+    // Notify all content scripts about settings change
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, { action: 'settingsChanged' }).catch(() => {
+            // Ignore errors for tabs that don't have content script
+        });
+    });
+    
     showToast();
 }
 
@@ -79,6 +103,25 @@ function showToast(message = 'Settings saved successfully!') {
 document.addEventListener('DOMContentLoaded', loadSettings);
 document.getElementById('saveBtn').addEventListener('click', saveSettings);
 document.getElementById('resetBtn').addEventListener('click', resetSettings);
+document.getElementById('extensionMode').addEventListener('change', (e) => {
+    toggleAccessModeSections(e.target.value);
+});
+
+function toggleAccessModeSections(mode) {
+    const allowlistSection = document.getElementById('allowlistSection');
+    const blocklistSection = document.getElementById('blocklistSection');
+    
+    if (mode === 'allowlist') {
+        allowlistSection.style.display = 'block';
+        blocklistSection.style.display = 'none';
+    } else if (mode === 'blocklist') {
+        allowlistSection.style.display = 'none';
+        blocklistSection.style.display = 'block';
+    } else {
+        allowlistSection.style.display = 'none';
+        blocklistSection.style.display = 'none';
+    }
+}
 
 document.querySelectorAll('.preset-color').forEach(preset => {
     preset.addEventListener('click', () => {
