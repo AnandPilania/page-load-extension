@@ -1,4 +1,5 @@
 # ⚡ Performance Tracker - Browser Extension
+# 🚧 In Development
 
 A beautiful, cross-browser extension that tracks and analyzes web page load times and performance metrics in real-time. Get instant insights into your website's performance with an elegant, non-intrusive floating overlay.
 
