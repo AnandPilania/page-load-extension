@@ -5,6 +5,29 @@
     <meta charset="UTF-8">
     <title>Performance Tracker - Settings</title>
     <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #48bb78;
+            --warning-color: #ed8936;
+            --danger-color: #e53e3e;
+            --bg-color: #f7fafc;
+            --card-bg: #ffffff;
+            --text-color: #2d3748;
+            --text-secondary: #718096;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a202c;
+            --card-bg: #2d3748;
+            --text-color: #f7fafc;
+            --text-secondary: #cbd5e0;
+            --border-color: #4a5568;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,17 +36,18 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-color);
             min-height: 100vh;
             padding: 40px 20px;
+            transition: background-color 0.3s ease;
         }
 
         .container {
             max-width: 800px;
             margin: 0 auto;
-            background: white;
+            background: var(--card-bg);
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--shadow);
             overflow: hidden;
         }
 
@@ -438,11 +462,31 @@
                     🎨 Appearance
                 </div>
 
+                <div class="section">
+                <div class="section-title">
+                    🎨 Appearance
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Dark Mode</div>
+                            <div class="setting-description">Use dark theme for extension interfaces</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkMode">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="setting-item">
                     <div class="setting-header">
                         <div>
                             <div class="setting-label">Floating Button Position</div>
-                            <div class="setting-description">Where to display the floating button</div>
+                            <div class="setting-description">Where to display floating button</div>
                         </div>
                     </div>
                     <div class="input-group">
@@ -459,7 +503,7 @@
                     <div class="setting-header">
                         <div>
                             <div class="setting-label">Button Color Theme</div>
-                            <div class="setting-description">Customize the floating button gradient</div>
+                            <div class="setting-description">Customize floating button gradient</div>
                         </div>
                     </div>
                     <div class="input-group">
@@ -497,13 +541,13 @@
                     <div class="setting-header">
                         <div>
                             <div class="setting-label">Overlay Position</div>
-                            <div class="setting-description">Where the performance panel slides in from</div>
+                            <div class="setting-description">Which side overlay appears from</div>
                         </div>
                     </div>
                     <div class="input-group">
                         <select id="overlayPosition">
-                            <option value="right">Slide from Right</option>
-                            <option value="left">Slide from Left</option>
+                            <option value="right">Right Side</option>
+                            <option value="left">Left Side</option>
                         </select>
                     </div>
                 </div>
@@ -559,6 +603,107 @@
                             <option value="L">Ctrl/Cmd + Shift + L</option>
                         </select>
                         <div class="help-text">Reload extension after changing</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    📊 Performance Budgets & Alerts
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Enable Performance Alerts</div>
+                            <div class="setting-description">Show notifications when performance budgets are exceeded</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableAlerts">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Load Time Budget</div>
+                            <div class="setting-description">Maximum acceptable page load time</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="loadTimeBudget" min="100" max="10000" step="100" value="3000">
+                        <span class="input-suffix">ms</span>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">FCP Budget</div>
+                            <div class="setting-description">Maximum acceptable first contentful paint time</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="fcpBudget" min="100" max="10000" step="100" value="2000">
+                        <span class="input-suffix">ms</span>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Page Size Budget</div>
+                            <div class="setting-description">Maximum acceptable total page size</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="pageSizeBudget" min="100" max="10000" step="100" value="2000">
+                        <span class="input-suffix">KB</span>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Resource Count Budget</div>
+                            <div class="setting-description">Maximum acceptable number of resources</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="resourceBudget" min="10" max="500" step="10" value="100">
+                        <span class="input-suffix">resources</span>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Regression Detection</div>
+                            <div class="setting-description">Alert when performance degrades compared to baseline</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableRegressionDetection">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div>
+                            <div class="setting-label">Regression Threshold</div>
+                            <div class="setting-description">Percentage increase to trigger regression alert</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="regressionThreshold" min="10" max="100" step="5" value="25">
+                        <span class="input-suffix">%</span>
                     </div>
                 </div>
             </div>

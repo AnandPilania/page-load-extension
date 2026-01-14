@@ -13,7 +13,15 @@ const DEFAULT_SETTINGS = {
     historyLimit: 100,
     loadGood: 1000,
     loadWarning: 3000,
-    shortcutKey: 'P'
+    shortcutKey: 'P',
+    darkMode: false,
+    enableAlerts: false,
+    loadTimeBudget: 3000,
+    fcpBudget: 2000,
+    pageSizeBudget: 2000,
+    resourceBudget: 100,
+    enableRegressionDetection: false,
+    regressionThreshold: 25
 };
 
 async function loadSettings() {
@@ -23,6 +31,14 @@ async function loadSettings() {
     document.getElementById('autoTrack').checked = settings.autoTrack;
     document.getElementById('showScore').checked = settings.showScore;
     document.getElementById('consoleLog').checked = settings.consoleLog;
+    document.getElementById('darkMode').checked = settings.darkMode;
+    document.getElementById('enableAlerts').checked = settings.enableAlerts;
+    document.getElementById('loadTimeBudget').value = settings.loadTimeBudget;
+    document.getElementById('fcpBudget').value = settings.fcpBudget;
+    document.getElementById('pageSizeBudget').value = settings.pageSizeBudget;
+    document.getElementById('resourceBudget').value = settings.resourceBudget;
+    document.getElementById('enableRegressionDetection').checked = settings.enableRegressionDetection;
+    document.getElementById('regressionThreshold').value = settings.regressionThreshold;
     document.getElementById('extensionMode').value = settings.extensionMode;
     document.getElementById('allowedSites').value = settings.allowedSites.join('\n');
     document.getElementById('blockedSites').value = settings.blockedSites.join('\n');
@@ -35,8 +51,17 @@ async function loadSettings() {
     document.getElementById('loadWarning').value = settings.loadWarning;
     document.getElementById('shortcutKey').value = settings.shortcutKey;
 
-    // Show/hide appropriate sections based on mode
+    applyDarkMode(settings.darkMode);
+
     toggleAccessModeSections(settings.extensionMode);
+}
+
+function applyDarkMode(isDark) {
+    if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
 }
 
 async function saveSettings() {
@@ -57,6 +82,14 @@ async function saveSettings() {
         autoTrack: document.getElementById('autoTrack').checked,
         showScore: document.getElementById('showScore').checked,
         consoleLog: document.getElementById('consoleLog').checked,
+        darkMode: document.getElementById('darkMode').checked,
+        enableAlerts: document.getElementById('enableAlerts').checked,
+        loadTimeBudget: parseInt(document.getElementById('loadTimeBudget').value),
+        fcpBudget: parseInt(document.getElementById('fcpBudget').value),
+        pageSizeBudget: parseInt(document.getElementById('pageSizeBudget').value),
+        resourceBudget: parseInt(document.getElementById('resourceBudget').value),
+        enableRegressionDetection: document.getElementById('enableRegressionDetection').checked,
+        regressionThreshold: parseInt(document.getElementById('regressionThreshold').value),
         extensionMode: document.getElementById('extensionMode').value,
         allowedSites: allowedSites,
         blockedSites: blockedSites,
@@ -72,7 +105,6 @@ async function saveSettings() {
 
     await chrome.storage.sync.set(settings);
     
-    // Notify all content scripts about settings change
     const tabs = await chrome.tabs.query({});
     tabs.forEach(tab => {
         chrome.tabs.sendMessage(tab.id, { action: 'settingsChanged' }).catch(() => {
@@ -105,6 +137,10 @@ document.getElementById('saveBtn').addEventListener('click', saveSettings);
 document.getElementById('resetBtn').addEventListener('click', resetSettings);
 document.getElementById('extensionMode').addEventListener('change', (e) => {
     toggleAccessModeSections(e.target.value);
+});
+
+document.getElementById('darkMode').addEventListener('change', (e) => {
+    applyDarkMode(e.target.checked);
 });
 
 function toggleAccessModeSections(mode) {

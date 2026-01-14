@@ -215,8 +215,48 @@
             gap: 10px;
         }
 
+        .charts-section {
+            padding: 15px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 150px;
+            margin-bottom: 10px;
+        }
+
+        .chart-legend {
+            display: flex;
+            justify-content: space-around;
+            font-size: 11px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .popup-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
         button {
             flex: 1;
+            min-width: 80px;
             padding: 10px;
             border: none;
             border-radius: 6px;
@@ -294,8 +334,16 @@
 
 <body>
     <div class="header">
-        <h1><span>⚡</span> Performance History</h1>
-        <p>Track performance across all websites</p>
+        <div class="header-title">⚡ Performance Tracker</div>
+        <div class="header-controls">
+            <label class="toggle-switch">
+                <input type="checkbox" id="darkModeToggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="header-label">🌙</span>
+        </div>
+    </div>
+    <p>Track performance across all websites</p>
     </div>
 
     <div class="quick-controls">
@@ -327,17 +375,40 @@
         <div class="loading">Loading performance history...</div>
     </div>
 
-    <div class="controls">
-        <button class="btn-primary" id="refreshBtn">Refresh</button>
-        <button class="btn-secondary" id="clearBtn">Clear History</button>
+    <div class="charts-section" id="chartsSection" style="display: none;">
+        <div class="chart-container">
+            <canvas id="performanceChart" width="300" height="150"></canvas>
+        </div>
+        <div class="chart-legend">
+            <div class="legend-item">
+                <span class="legend-color" style="background: #667eea;"></span>
+                <span>Load Time</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #48bb78;"></span>
+                <span>FCP</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #ed8936;"></span>
+                <span>TTFB</span>
+            </div>
+        </div>
     </div>
 
-    <div class="settings-footer">
-        <button id="settingsBtn">
-            <span>⚙️</span>
-            <span>Advanced Settings</span>
-        </button>
-    </div>
+    <div class="popup-actions">
+            <button id="refreshBtn" class="btn btn-primary">
+                🔄 Refresh
+            </button>
+            <button id="exportBtn" class="btn btn-secondary">
+                📊 Export Data
+            </button>
+            <button id="clearBtn" class="btn btn-danger">
+                🗑️ Clear History
+            </button>
+            <button id="settingsBtn" class="btn btn-secondary">
+                ⚙️ Advanced Settings
+            </button>
+        </div>
 
     <script src="popup.js"></script>
 </body>

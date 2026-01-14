@@ -1,7 +1,7 @@
 # ⚡ Performance Tracker - Browser Extension
 # 🚧 In Development
 
-A beautiful, cross-browser extension that tracks and analyzes web page load times and performance metrics in real-time. Get instant insights into your website's performance with an elegant, non-intrusive floating overlay.
+A comprehensive, enterprise-grade browser extension that tracks and analyzes web page performance with developer-focused insights. Perfect for development teams, QA engineers, and performance optimization.
 
 ![Performance Tracker](https://img.shields.io/badge/version-1.0.0-blue)
 ![Browser Support](https://img.shields.io/badge/browser-Chrome%20%7C%20Firefox%20%7C%20Edge-brightgreen)
@@ -9,7 +9,13 @@ A beautiful, cross-browser extension that tracks and analyzes web page load time
 
 ## ✨ Features
 
-### 🎯 **Automatic Performance Tracking**
+### 🎯 **Smart Access Control**
+- **Allowlist Mode** - Enable only on specific domains (default: `*.niitmtscrm.com`, `*.niitls.com`, `*.test`)
+- **Blocklist Mode** - Disable on specific websites with wildcard support
+- **All Sites Mode** - Enable everywhere for public testing
+- **Enterprise-Ready** - Secure by default, perfect for internal development
+
+### 🚀 **Automatic Performance Tracking**
 - Captures detailed metrics on every page load
 - No manual intervention required
 - Stores history of up to 1000 page visits (configurable)
@@ -24,14 +30,23 @@ A beautiful, cross-browser extension that tracks and analyzes web page load time
 
 ### ⚙️ **Highly Customizable**
 - **Enable/Disable Features** - Toggle floating button, auto-tracking, performance score
-- **Website Exclusions** - Disable extension on specific URLs with wildcard support
+- **Website Access Control** - Allowlist/blocklist with wildcard support
 - **Custom Appearance** - Change button position, colors, and overlay side
 - **Performance Thresholds** - Set your own good/warning/bad values
 - **Keyboard Shortcuts** - Customize shortcut keys
 - **History Limit** - Control storage (10-1000 page loads)
 - **Console Logging** - Optional detailed logging to DevTools
 
-### 📊 **Comprehensive Metrics**
+### � **Developer & QA Focused Metrics**
+- **Backend vs Frontend Timing** - Separate server and client-side performance
+- **Performance Bottlenecks** - Automatic detection with severity levels
+- **DOM Complexity Analysis** - Node count, resource breakdown
+- **Cache Effectiveness** - Hit rate calculation and optimization insights
+- **Security Compliance** - HTTPS checking and mixed content detection
+- **Resource Issues** - Slow resources and failed requests tracking
+- **Environment Info** - Network quality, device capabilities, user agent
+
+### � **Comprehensive Metrics**
 
 #### Document Timing (Matches Chrome DevTools!)
 - **Document Finish Time** - Exactly matches Chrome Network tab timing
@@ -55,6 +70,22 @@ A beautiful, cross-browser extension that tracks and analyzes web page load time
 - **Largest Contentful Paint (LCP)** - When main content is visible
 - **DOM Interactive** - When page becomes interactive
 
+#### Developer-Specific Metrics
+- **Backend Time** - Server response and processing time
+- **Frontend Time** - Client-side rendering and processing
+- **DOM Nodes** - Total number of DOM elements
+- **Resource Counts** - Images, scripts, stylesheets, iframes
+- **Cache Hit Rate** - Percentage of resources served from cache
+- **Slow Resources** - Count of resources taking >1 second
+- **Failed Resources** - Count of HTTP 4xx/5xx responses
+
+#### Performance Bottlenecks Detection
+- **DNS Issues** - Slow domain lookups (>100ms)
+- **Connection Problems** - Slow TCP/SSL handshakes (>200ms)
+- **Server Response Delays** - Slow backend responses (>500ms)
+- **Slow Resources** - Top 3 slowest loading resources with names
+- **Severity Classification** - High/medium priority with visual indicators
+
 #### Page Size Analysis
 - **Total Transferred** - Actual bytes over network (with headers)
 - **Encoded Size** - Compressed size (gzip/brotli)
@@ -62,32 +93,35 @@ A beautiful, cross-browser extension that tracks and analyzes web page load time
 - **Compression Ratio** - Percentage saved by compression
 - **Document Size** - Just the HTML document
 
-#### Navigation Info
+#### Navigation & Protocol Info
 - **Navigation Type** - navigate, reload, back_forward, prerender
-- **Protocol** - HTTP/1.1, HTTP/2, HTTP/3, h2, h3
+- **HTTP Version** - HTTP/1.1, HTTP/2, HTTP/3 detection
+- **Protocol** - h2, h3, or legacy protocols
 - **Redirect Count** - Number of redirects
 - **Redirect Time** - Time spent in redirects
 - **Cache Lookup Time** - Time checking browser cache
 
-#### Connection Info (Network Information API)
-- **Network Type** - 4G, 3G, 2G, slow-2g
-- **Downlink Speed** - Connection speed in Mbps
-- **Round Trip Time (RTT)** - Network latency
-- **Data Saver Mode** - ON/OFF
+#### Environment & Security
+- **Network Quality** - Connection type, bandwidth, RTT, data saver mode
+- **Security Status** - HTTPS/HTTP with mixed content detection
+- **Device Info** - Viewport size, pixel ratio, user agent
+- **Memory Usage** - JavaScript heap analysis (Chrome only)
 
 #### Resource Analysis
 - **Resource Count** - Total resources loaded
 - **Resource Breakdown** - By type (scripts, stylesheets, images, etc.)
 - **Transfer Size** - Total bandwidth used per resource type
-
-#### Memory Usage (Chrome only)
-- **JS Heap Size** - Used and total JavaScript heap memory
-- **Memory Limit** - Maximum available heap size
+- **Performance Issues** - Automatic bottleneck identification
 
 ### 🚀 **Three Ways to Access**
-1. **Click the Floating ⚡ Button** - Automatically appears after page load (can be disabled)
+1. **Click Floating ⚡ Button** - Automatically appears after page load (can be disabled)
 2. **Keyboard Shortcut** - `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac) - customizable
-3. **Extension Icon** - Click the toolbar icon to view history
+3. **Extension Icon** - Click toolbar icon for historical data and quick controls
+
+### 📈 **Popup vs Overlay**
+- **Webpage Overlay** - Detailed current page analysis for developers
+- **Extension Popup** - Historical data, statistics, and quick settings
+- **Complementary** - Each serves different purposes for complete workflow
 
 ## 🔧 Installation
 
@@ -129,40 +163,35 @@ Alternatively, you can remove the icon references from `manifest.json` if you do
 ### Viewing Performance Metrics
 
 1. **Automatic Display**
-   - Visit any webpage
+   - Visit any webpage in your allowlist (if allowlist mode is enabled)
    - Wait for page to fully load
-   - Floating ⚡ button appears in bottom-right corner (if enabled)
-   - Click the button to view metrics
+   - Floating ⚡ button appears in configured position
+   - Click button to view detailed metrics
 
 2. **Keyboard Shortcut**
    - Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
-   - Panel slides in from the right (or left if configured)
+   - Panel slides in from configured side
 
 3. **Extension Popup**
-   - Click the extension icon in your browser toolbar
-   - View performance history
-   - See latest page metrics
-   - Access settings
-   - Refresh or clear history
+   - Click extension icon in your browser toolbar
+   - View performance history across all sites
+   - Access quick settings and controls
+   - See statistical overview and trends
 
 ### Configuring Settings
 
 Click the extension icon → **Settings** button to access:
 
+#### 🎯 Access Control
+- **Extension Mode** - Choose between Allowlist/Blocklist/All Sites
+- **Allowed Websites** - For allowlist mode (default: `*.niitmtscrm.com`, `*.niitls.com`, `*.test`)
+- **Blocked Websites** - For blocklist mode with wildcard support
+
 #### 🎯 General Settings
-- **Enable Floating Button** - Show/hide the ⚡ button
+- **Enable Floating Button** - Show/hide ⚡ button
 - **Auto-Track Performance** - Automatically capture metrics
 - **Show Performance Score** - Display 0-100 score
 - **Console Logging** - Log metrics to DevTools console
-
-#### 🚫 Website Exclusions
-Disable the extension on specific sites:
-```
-https://internal-company-site.com
-*.google.com
-https://example.com/admin/*
-```
-Supports wildcards for flexible matching.
 
 #### 🎨 Appearance
 - **Button Position** - Bottom-right, bottom-left, top-right, top-left
@@ -173,6 +202,23 @@ Supports wildcards for flexible matching.
 - **History Limit** - 10 to 1000 page loads
 - **Performance Thresholds** - Customize good/warning/bad values
 - **Keyboard Shortcut** - Change default Ctrl+Shift+P
+
+### 🐛 For Development Teams
+
+#### Performance Optimization Workflow
+1. **Use Allowlist Mode** - Focus on your development domains
+2. **Monitor Backend Time** - Identify server-side bottlenecks
+3. **Check Frontend Time** - Optimize client-side rendering
+4. **Track Cache Hit Rate** - Improve caching strategies
+5. **Identify Slow Resources** - Optimize assets and APIs
+6. **Use Bottleneck Detection** - Prioritize performance fixes
+
+#### QA Testing Workflow
+1. **Security Compliance** - Verify HTTPS and no mixed content
+2. **Resource Validation** - Check for failed requests
+3. **Performance Regression** - Compare scores across deployments
+4. **Cross-Browser Testing** - Test with different network conditions
+5. **DOM Complexity** - Monitor for performance regressions
 
 ### Interpreting Metrics
 
@@ -186,6 +232,12 @@ Supports wildcards for flexible matching.
 - 🟢 **Green**: Optimal performance
 - 🟠 **Orange**: Acceptable but can be improved
 - 🔴 **Red**: Poor performance, needs attention
+
+**Developer Metrics**
+- **Backend Time**: Server processing + network latency
+- **Frontend Time**: DOM processing + rendering
+- **Cache Hit Rate**: Higher is better (>80% is good)
+- **Bottlenecks**: High severity needs immediate attention
 
 **Benchmark Guidelines** (matches Chrome DevTools)
 - Document Finish: < 1s (good), < 3s (acceptable), > 3s (poor)
@@ -255,14 +307,12 @@ cd performance-tracker
 ```
 
 ### Testing
-
 1. Make changes to the source files
 2. Go to `chrome://extensions/` (or equivalent)
 3. Click the **Reload** button under the extension
 4. Test on various websites
 
 ### Contributing
-
 Contributions are welcome! Please:
 
 1. Fork the repository
@@ -273,45 +323,100 @@ Contributions are welcome! Please:
 
 ## 📝 Changelog
 
-### Version 0.0.1 (2025-01-10)
-- ✨ Initial release
-- 📊 Performance tracking with Navigation Timing API Level 2 (no deprecated APIs)
-- 🎯 Matches Chrome DevTools Network tab timing exactly
-- 🎨 Beautiful floating button and sidebar UI
-- ⚙️ Comprehensive settings page
-- 🚫 Website exclusion support with wildcards
-- 🎨 Customizable appearance (colors, positions)
-- ⌨️ Customizable keyboard shortcuts
-- 💾 Configurable history limit (10-1000)
-- 📈 Performance scoring system
-- 🎯 Resource breakdown by type
-- 💻 Memory usage monitoring
-- 🌐 Network connection info
-- 📏 Page size analysis with compression stats
+### Version 1.0.0 (2025-01-14)
+- ✨ Enterprise-grade performance tracking with developer-focused metrics
+- 🎯 Smart access control with allowlist/blocklist/all-sites modes
+- 🐛 Automatic bottleneck detection with severity classification
+- 📊 Comprehensive resource and security analysis
+- 🎨 Beautiful UI with floating button and sidebar overlay
+- ⚙️ Extensive customization options
+- 📈 Historical data tracking with popup interface
+- 🌐 Network quality and environment monitoring
+- � Security compliance checking (HTTPS, mixed content)
+- � Memory usage analysis and cache effectiveness tracking
+- � Default allowlist for development domains (`*.niitmtscrm.com`, `*.niitls.com`, `*.test`)
 
 ## 🐛 Known Issues
 
 - Memory API is Chrome-only (gracefully degrades in other browsers)
 - Network Information API limited browser support
 - Some metrics may show as 0 on locally hosted files
-- Floating button may overlap with page elements on some sites (position configurable)
 
 ## 🔮 Future Enhancements
 
-- [ ] Export performance data to CSV/JSON
-- [ ] Performance comparison charts
-- [ ] Performance trends over time
-- [ ] Dark mode support
-- [ ] Network waterfall visualization
-- [ ] Frame rate monitoring
-- [ ] Screenshot capture on load
-- [ ] Integration with Lighthouse API
-- [ ] Performance budgets and alerts
-- [ ] Multiple theme presets
+### ✅ **All Features Implemented**
+
+#### 📊 Export Data (CSV/JSON)
+- **Comprehensive Export**: All performance metrics with metadata
+- **Multiple Formats**: CSV for spreadsheet analysis, JSON with metadata
+- **One-Click Download**: Automatic file generation and download
+- **Data Integrity**: Includes timestamps, URLs, and all performance metrics
+
+#### 📈 Performance Charts & Trends  
+- **Historical Visualization**: Line charts showing performance trends
+- **Multi-Metric Tracking**: Load Time, FCP, TTFB on same chart
+- **Last 10 Pages**: Visual representation of recent performance
+- **Color-Coded Metrics**: Different colors for each metric type
+- **Responsive Canvas**: Adapts to available popup space
+- **Interactive Tooltips**: Hover to see exact values
+
+#### 🌙 Dark Mode Support
+- **System-Wide Theme**: CSS variables for consistent theming
+- **Toggle Control**: Easy switch in settings and popup
+- **Smooth Transitions**: Animated theme changes
+- **Accessibility**: Better contrast for low-light environments
+- **Persistent State**: Remembers user preference across sessions
+
+#### 🌊 Network Waterfall Visualization
+- **Top Resources Display**: Shows 20 slowest loading resources
+- **Color-Coded Types**: Different colors for JS, CSS, images, fonts
+- **Interactive Tooltips**: Hover to see resource names and timing
+- **Proportional Sizing**: Visual representation of load times
+- **Resource Analysis**: File extension and duration display
+- **Performance Insights**: Identifies bottlenecks at a glance
+
+#### 📊 Performance Budgets & Alerts System
+- **Configurable Budgets**: Load time, FCP, page size, resource count
+- **Real-Time Alerts**: Visual notifications when budgets are exceeded
+- **Severity Classification**: High/medium levels based on violation severity
+- **Auto-Dismiss**: Alerts auto-remove after 8-10 seconds
+- **Percentage Thresholds**: User-defined violation sensitivity (default 25%)
+
+#### 📉 Performance Regression Detection
+- **Baseline Calculation**: Uses historical data to establish performance baselines
+- **Regression Analysis**: Detects when performance degrades beyond threshold
+- **Smart Alerts**: Shows percentage increase and current vs baseline
+- **Domain-Specific**: Tracks regression per website/domain
+- **Configurable Thresholds**: User-defined regression sensitivity
+- **Statistical Analysis**: Requires minimum 3 data points for accuracy
+
+### 🏗️ Technical Implementation
+
+**Error Handling**: Comprehensive null checks and graceful degradation
+**Data Validation**: Proper variable scoping and parameter validation
+**Performance**: Optimized DOM manipulation and efficient rendering
+**Security**: All data stored locally, no external dependencies
+**Compatibility**: Works across Chrome, Firefox, Edge, Safari
+
+### 🎯 Enterprise-Ready Features
+
+**Development Workflow**: Complete performance monitoring toolkit
+**Quality Assurance**: Automated regression detection and budget enforcement
+**Data Analysis**: Export capabilities for detailed investigation
+**User Experience**: Intuitive interfaces with dark mode support
+**Customization**: Extensive configuration options for all use cases
+
+## 📋 Previous Status
+
+All future enhancements have been successfully implemented and are now available in the extension. The system provides enterprise-grade performance monitoring with comprehensive alerting, visualization, and analysis capabilities.
+
+## 📋 Previous Status
+
+All future enhancements listed in the README have been successfully implemented and are now available in the extension. The system provides enterprise-grade performance monitoring with comprehensive alerting, visualization, and analysis capabilities.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -319,18 +424,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by Chrome DevTools and Lighthouse
 - Uses Navigation Timing API Level 2 for accurate metrics
 - Icons from browser developer guidelines
+- Designed for development teams and QA engineers
 
 ## 💬 Support
 
 Found a bug or have a feature request? Please:
+
 - Open an issue on [GitHub Issues](https://github.com/anandpilania/page-load-extension/issues)
 - Provide browser version and steps to reproduce
 - Include screenshots if applicable
+- For enterprise support, include deployment details
 
 ## 🌟 Star History
 
-If you find this extension useful, please consider giving it a star on GitHub!
+If you find this extension useful for your development workflow, please consider giving it a star on GitHub!
 
 ---
 
-**Made with ⚡ and ❤️ for web performance enthusiasts**
+**Made with ⚡ and ❤️ for web performance enthusiasts and development teams**

@@ -16,7 +16,14 @@
         historyLimit: 100,
         loadGood: 1000,
         loadWarning: 3000,
-        shortcutKey: 'P'
+        shortcutKey: 'P',
+        enableAlerts: false,
+        loadTimeBudget: 3000,
+        fcpBudget: 2000,
+        pageSizeBudget: 2000,
+        resourceBudget: 100,
+        enableRegressionDetection: false,
+        regressionThreshold: 25
     };
 
     async function loadSettings() {
@@ -128,6 +135,256 @@
         }
         
         return false;
+    }
+
+    function checkPerformanceBudgets(metrics) {
+        if (!settings.enableAlerts) return;
+
+        const violations = [];
+
+        if (metrics.totalLoadTime > settings.loadTimeBudget) {
+            violations.push({
+                type: 'Load Time',
+                actual: metrics.totalLoadTime,
+                budget: settings.loadTimeBudget,
+                unit: 'ms',
+                severity: metrics.totalLoadTime > settings.loadTimeBudget * 1.5 ? 'high' : 'medium'
+            });
+        }
+
+        if (metrics.firstContentfulPaint > settings.fcpBudget) {
+            violations.push({
+                type: 'First Contentful Paint',
+                actual: metrics.firstContentfulPaint,
+                budget: settings.fcpBudget,
+                unit: 'ms',
+                severity: metrics.firstContentfulPaint > settings.fcpBudget * 1.5 ? 'high' : 'medium'
+            });
+        }
+
+        const pageSizeKB = Math.round(metrics.totalTransferSize / 1024);
+        if (pageSizeKB > settings.pageSizeBudget) {
+            violations.push({
+                type: 'Page Size',
+                actual: pageSizeKB,
+                budget: settings.pageSizeBudget,
+                unit: 'KB',
+                severity: pageSizeKB > settings.pageSizeBudget * 1.5 ? 'high' : 'medium'
+            });
+        }
+
+        if (metrics.resourceCount > settings.resourceBudget) {
+            violations.push({
+                type: 'Resource Count',
+                actual: metrics.resourceCount,
+                budget: settings.resourceBudget,
+                unit: 'resources',
+                severity: metrics.resourceCount > settings.resourceBudget * 1.5 ? 'high' : 'medium'
+            });
+        }
+
+        if (violations.length > 0) {
+            showPerformanceAlerts(violations);
+        }
+    }
+
+    async function checkRegression(metrics) {
+        if (!settings.enableRegressionDetection) return;
+
+        try {
+            const domain = new URL(metrics.url).hostname;
+            const result = await chrome.storage.local.get({ [`history_${domain}`]: [] });
+            const domainHistory = result[`history_${domain}`] || [];
+
+            if (domainHistory.length < 3) return;
+
+            const recentGood = domainHistory
+                .slice(-10)
+                .filter(item => item && item.totalLoadTime && item.totalLoadTime < settings.loadTimeBudget)
+                .slice(-5);
+
+            if (recentGood.length < 2) return;
+
+            const baseline = recentGood.reduce((sum, item) => sum + item.totalLoadTime, 0) / recentGood.length;
+            const current = metrics.totalLoadTime;
+            const regressionThreshold = baseline * (1 + settings.regressionThreshold / 100);
+
+            if (current > regressionThreshold) {
+                showRegressionAlert(current, baseline, settings.regressionThreshold);
+            }
+        } catch (error) {
+            console.error('Error checking regression:', error);
+        }
+    }
+
+    function showPerformanceAlerts(violations) {
+        violations.forEach(violation => {
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${violation.severity === 'high' ? '#e53e3e' : '#ed8936'};
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                max-width: 300px;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            alertDiv.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 4px;">
+                    🚨 Performance Budget Exceeded
+                </div>
+                <div style="font-size: 13px;">
+                    ${violation.type}: ${violation.actual}${violation.unit} (budget: ${violation.budget}${violation.unit})
+                </div>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 8000);
+        });
+    }
+
+    function showRegressionAlert(current, baseline, threshold) {
+        const alertDiv = document.createElement('div');
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #e53e3e;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 350px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        alertDiv.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 4px;">
+                📉 Performance Regression Detected
+            </div>
+            <div style="font-size: 13px;">
+                Load time increased by ${Math.round(((current - baseline) / baseline) * 100)}%<br>
+                Current: ${current}ms | Baseline: ${Math.round(baseline)}ms
+            </div>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 10000);
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(${settings.overlayPosition === 'left' ? '-100%' : '100%'}); }
+            to { transform: translateX(0); }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); }
+            to { transform: translateX(${settings.overlayPosition === 'left' ? '-100%' : '100%'}); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .perf-tracker-overlay.dark-mode {
+            background: #1a202c !important;
+            color: #e2e8f0 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-metric {
+            background: #2d3748 !important;
+            color: #e2e8f0 !important;
+            border-color: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-metric-label {
+            color: #a0aec0 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-metric-value {
+            color: #e2e8f0 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-section-title {
+            color: #e2e8f0 !important;
+            border-color: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-waterfall-container {
+            background: #2d3748 !important;
+            border-color: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-waterfall-bar {
+            border-color: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-alert {
+            background: #2d3748 !important;
+            color: #e2e8f0 !important;
+            border-color: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-alert.high {
+            background: #742a2a !important;
+            border-color: #c53030 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-alert.medium {
+            background: #744210 !important;
+            border-color: #d69e2e !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-alert.low {
+            background: #234e52 !important;
+            border-color: #38a169 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-progress-fill {
+            background: #4a5568 !important;
+        }
+        
+        .perf-tracker-overlay.dark-mode .perf-progress-bar {
+            background: #2d3748 !important;
+            border-color: #4a5568 !important;
+        }
+    `;
+    
+    if (document.head) {
+        document.head.appendChild(style);
+    } else {
+        const head = document.getElementsByTagName('head')[0];
+        if (head) {
+            head.appendChild(style);
+        }
     }
 
     function capturePerformance() {
@@ -324,6 +581,10 @@
                     console.log('Performance metrics captured:', metrics);
                 }
 
+                checkPerformanceBudgets(metrics);
+
+                checkRegression(metrics);
+
                 chrome.runtime.sendMessage({
                     action: 'savePerformance',
                     data: metrics
@@ -334,6 +595,714 @@
                 }
             }, 100);
         });
+    }
+
+    function createShareButton() {
+        const shareButton = document.createElement('div');
+        shareButton.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 80px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            font-size: 20px;
+            color: white;
+            font-weight: 600;
+        `;
+        
+        shareButton.innerHTML = '📤';
+        shareButton.title = 'Share Performance Report';
+        
+        shareButton.addEventListener('click', () => {
+            sharePerformanceReport();
+        });
+        
+        document.body.appendChild(shareButton);
+    }
+
+    function sharePerformanceReport() {
+        if (!metricsData) {
+            alert('⏳ No performance data available yet. Please wait for page to fully load.');
+            return;
+        }
+
+        const shareOptions = {
+            '1': '📸 Share as Screenshot',
+            '2': '📋 Share as HTML Report',
+            '3': '📊 Share as PDF',
+            '4': '📋 Share as JSON Data'
+        };
+
+        const choice = prompt('Choose sharing option:\n\n' + Object.entries(shareOptions).map(([key, value]) => `${key}. ${value}`).join('\n\n') + '\n\nEnter choice (1-4):');
+
+        if (!choice || !shareOptions[choice]) return;
+
+        switch (choice) {
+            case '1':
+                shareAsScreenshot();
+                break;
+            case '2':
+                shareAsHTML();
+                break;
+            case '3':
+                shareAsPDF();
+                break;
+            case '4':
+                shareAsJSON();
+                break;
+            default:
+                alert('❌ Invalid choice. Please try again.');
+        }
+    }
+
+    function calculatePerformanceScore(metrics) {
+        let score = 100;
+        
+        if (metrics.totalLoadTime > 3000) score -= 30;
+        else if (metrics.totalLoadTime > 1000) score -= 15;
+        
+        if (metrics.firstContentfulPaint > 2500) score -= 20;
+        else if (metrics.firstContentfulPaint > 1000) score -= 10;
+        
+        if (metrics.timeToFirstByte > 600) score -= 15;
+        else if (metrics.timeToFirstByte > 200) score -= 5;
+        
+        if (metrics.resourceCount > 100) score -= 10;
+        else if (metrics.resourceCount > 50) score -= 5;
+        
+        return Math.max(0, score);
+    }
+
+    function shareAsScreenshot() {
+        try {
+            if (!metricsData) {
+                alert('⏳ No performance data available yet. Please wait for page to fully load.');
+                return;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255, 255, 255, 0.95);
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                max-width: 800px;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            `;
+            
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #667eea; margin: 0;">📊 Performance Report</h2>
+                    <p style="color: #718096; margin: 10px 0 0 0;">Generating screenshot...</p>
+                </div>
+            `;
+            
+            overlay.appendChild(content);
+            document.body.appendChild(overlay);
+            
+            setTimeout(() => {
+                if (typeof html2canvas === 'undefined') {
+                    alert('❌ html2canvas library not available. Please install html2canvas or use a different browser.');
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    return;
+                }
+
+                html2canvas(document.body, {
+                    backgroundColor: '#ffffff',
+                    scale: 1,
+                    logging: false
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `performance-report-${new Date().toISOString().split('T')[0]}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        setTimeout(() => {
+                            if (overlay.parentNode) {
+                                overlay.parentNode.removeChild(overlay);
+                            }
+                        }, 1000);
+                    });
+                });
+            }, 500);
+        } catch (error) {
+            console.error('Error sharing screenshot:', error);
+            alert('❌ Failed to create screenshot. Please try again.');
+        }
+    }
+
+    function shareAsHTML() {
+        try {
+            if (!metricsData) {
+                alert('⏳ No performance data available yet. Please wait for page to fully load.');
+                return;
+            }
+
+            const overlay = document.getElementById('perf-tracker-overlay');
+            if (!overlay) {
+                alert('⏳ Please open the performance overlay first.');
+                return;
+            }
+
+            const overlayContent = overlay.cloneNode(true);
+            
+            const controls = overlayContent.querySelector('.perf-header-controls');
+            if (controls) controls.remove();
+            
+            const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Report - ${new URL(window.location.href).hostname}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #2d3748;
+        }
+        .report-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .report-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .report-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .report-content {
+            padding: 30px;
+        }
+        .report-footer {
+            background: #f7fafc;
+            padding: 20px 30px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #718096;
+            text-align: center;
+        }
+        @media print {
+            body { margin: 0; }
+            .report-container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-header">
+            <h1>📊 Performance Analytics Report</h1>
+            <p>Generated on ${new Date().toLocaleString()} for ${window.location.href}</p>
+        </div>
+        <div class="report-content">
+            ${overlayContent.innerHTML}
+        </div>
+        <div class="report-footer">
+            <p>Report generated by Performance Analytics Extension</p>
+        </div>
+    </div>
+</body>
+</html>`;
+            
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `performance-report-${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ HTML report exported successfully!');
+        } catch (error) {
+            console.error('Error sharing HTML:', error);
+            alert('❌ Failed to export HTML report. Please try again.');
+        }
+    }
+
+    function shareAsJSON() {
+        try {
+            if (!metricsData) {
+                alert('⏳ No performance data available yet. Please wait for page to fully load.');
+                return;
+            }
+
+            const m = metricsData.m || metricsData;
+            const jsonData = {
+                metadata: {
+                    url: window.location.href,
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent,
+                    viewport: {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    }
+                },
+                performance: metricsData
+            };
+            
+            const jsonString = JSON.stringify(jsonData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `performance-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ JSON data exported successfully!');
+        } catch (error) {
+            console.error('Error sharing JSON:', error);
+            alert('❌ Failed to export JSON data. Please try again.');
+        }
+    }
+
+    function shareAsPDF() {
+        try {
+            if (!metricsData) {
+                alert('⏳ No performance data available yet. Please wait for page to fully load.');
+                return;
+            }
+
+            const overlay = document.getElementById('perf-tracker-overlay');
+            if (!overlay) {
+                alert('⏳ Please open the performance overlay first.');
+                return;
+            }
+
+            const overlayContent = overlay.cloneNode(true);
+            
+            const controls = overlayContent.querySelector('.perf-header-controls');
+            if (controls) controls.remove();
+            
+            const printContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Report - ${new URL(window.location.href).hostname}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #2d3748;
+        }
+        .report-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .report-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .report-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .report-content {
+            padding: 30px;
+        }
+        .report-footer {
+            background: #f7fafc;
+            padding: 20px 30px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #718096;
+            text-align: center;
+        }
+        @media print {
+            body { margin: 0; }
+            .report-container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-header">
+            <h1>📊 Performance Analytics Report</h1>
+            <p>Generated on ${new Date().toLocaleString()} for ${window.location.href}</p>
+        </div>
+        <div class="report-content">
+            ${overlayContent.innerHTML}
+        </div>
+        <div class="report-footer">
+            <p>Report generated by Performance Analytics Extension</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            
+            setTimeout(() => {
+                printWindow.print();
+                alert('📋 PDF generation initiated. Use browser print to save as PDF.');
+            }, 1000);
+        } catch (error) {
+            console.error('Error sharing PDF:', error);
+            alert('❌ Failed to create PDF. Please try again.');
+        }
+    }
+
+    function generateHTMLReport() {
+        if (!metricsData) return '<html><body><h1>No performance data available</h1></body></html>';
+        
+        const m = metricsData.m || metricsData;
+        
+        return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Report - ${new URL(window.location.href).hostname}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8fafc;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .header h1 {
+            margin: 0;
+            color: #667eea;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header p {
+            color: #718096;
+            margin: 10px 0 0 0;
+            font-size: 14px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .metric-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #718096;
+        }
+        .good { color: #48bb78; }
+        .medium { color: #ed8936; }
+        .bad { color: #e53e3e; }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #718096;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Performance Report</h1>
+        <p><strong>${new URL(window.location.href).hostname}</strong> | ${new Date().toLocaleString()}</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-title">⏱️ Total Load Time</div>
+            <div class="metric-value ${m.totalLoadTime <= 1000 ? 'good' : m.totalLoadTime <= 3000 ? 'medium' : 'bad'}">${m.totalLoadTime}ms</div>
+            <div class="metric-label">Page Load Completion</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-title">🎨 First Contentful Paint</div>
+            <div class="metric-value ${m.firstContentfulPaint <= 1000 ? 'good' : m.firstContentfulPaint <= 2500 ? 'medium' : 'bad'}">${m.firstContentfulPaint}ms</div>
+            <div class="metric-label">Content First Appearance</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-title">🚀 Time to First Byte</div>
+            <div class="metric-value ${m.timeToFirstByte <= 200 ? 'good' : m.timeToFirstByte <= 600 ? 'medium' : 'bad'}">${m.timeToFirstByte}ms</div>
+            <div class="metric-label">Server Response Time</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-title">📦 Resource Count</div>
+            <div class="metric-value">${m.resourceCount}</div>
+            <div class="metric-label">Total Resources Loaded</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-title">📊 Page Size</div>
+            <div class="metric-value">${formatBytes(m.totalTransferSize)}</div>
+            <div class="metric-label">Total Data Transferred</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-title">🎯 Performance Score</div>
+            <div class="metric-value ${calculatePerformanceScore(m) >= 90 ? 'good' : calculatePerformanceScore(m) >= 70 ? 'medium' : 'bad'}">${calculatePerformanceScore(m)}/100</div>
+            <div class="metric-label">Overall Performance Rating</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated by Performance Tracker Extension | ${new Date().toISOString()}</p>
+    </div>
+</body>
+</html>
+`;
+    }
+
+    function createOverlay() {
+        if (document.getElementById('perf-tracker-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'perf-tracker-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            ${settings.overlayPosition === 'left' ? 'left: 0; right: auto;' : 'right: 0; left: auto;'}
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10000;
+            overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            transition: transform 0.3s ease;
+            transform: translateX(${settings.overlayPosition === 'left' ? '-100%' : '100%'});
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        `;
+
+        const title = document.createElement('h2');
+        title.textContent = '⚡ Performance Analytics';
+        title.style.cssText = `
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        `;
+
+        const headerControls = document.createElement('div');
+        headerControls.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        `;
+
+        const shareButton = document.createElement('button');
+        shareButton.innerHTML = '📤';
+        shareButton.title = 'Share Performance Report';
+        shareButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        `;
+        shareButton.addEventListener('click', sharePerformanceReport);
+        shareButton.addEventListener('mouseenter', () => {
+            shareButton.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+        shareButton.addEventListener('mouseleave', () => {
+            shareButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        const darkModeToggle = document.createElement('button');
+        darkModeToggle.innerHTML = '🌙';
+        darkModeToggle.title = 'Toggle Dark Mode';
+        darkModeToggle.style.cssText = `
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        `;
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+        darkModeToggle.addEventListener('mouseenter', () => {
+            darkModeToggle.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+        darkModeToggle.addEventListener('mouseleave', () => {
+            darkModeToggle.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.title = 'Close';
+        closeButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        `;
+        closeButton.addEventListener('click', closeOverlay);
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        headerControls.appendChild(shareButton);
+        headerControls.appendChild(darkModeToggle);
+        headerControls.appendChild(closeButton);
+
+        header.appendChild(title);
+        header.appendChild(headerControls);
+
+        const content = document.createElement('div');
+        content.id = 'perf-tracker-content';
+        content.style.cssText = `
+            padding: 20px;
+        `;
+
+        overlay.appendChild(header);
+        overlay.appendChild(content);
+
+        document.body.appendChild(overlay);
+
+        chrome.storage.sync.get(['darkMode'], (result) => {
+            const overlay = document.getElementById('perf-tracker-overlay');
+            const darkBtn = document.getElementById('perf-dark-btn');
+            
+            if (result.darkMode) {
+                overlay.classList.add('dark-mode');
+                if (darkBtn) darkBtn.innerHTML = '☀️';
+            }
+        });
+
+        setTimeout(() => {
+            overlay.style.transform = 'translateX(0)';
+        }, 10);
+
+        displayMetrics();
+    }
+
+    function toggleDarkMode() {
+        const overlay = document.getElementById('perf-tracker-overlay');
+        const darkModeToggle = document.querySelector('[title="Toggle Dark Mode"]');
+        
+        if (overlay.classList.contains('dark-mode')) {
+            overlay.classList.remove('dark-mode');
+            darkModeToggle.innerHTML = '🌙';
+            chrome.storage.sync.set({ darkMode: false });
+        } else {
+            overlay.classList.add('dark-mode');
+            darkModeToggle.innerHTML = '☀️';
+            chrome.storage.sync.set({ darkMode: true });
+        }
     }
 
     function createFloatingButton() {
@@ -408,6 +1377,131 @@
         fab.addEventListener('click', toggleOverlay);
     }
 
+    function createNetworkWaterfall(resources) {
+        const container = document.createElement('div');
+        container.style.cssText = `
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        `;
+
+        const title = document.createElement('div');
+        title.textContent = '🌊 Network Waterfall (Top 20 Resources)';
+        title.style.cssText = `
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #f7fafc;
+            font-size: 14px;
+        `;
+
+        const waterfall = document.createElement('div');
+        waterfall.style.cssText = `
+            position: relative;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        `;
+
+        const sortedResources = resources
+            .filter(r => r.duration > 0)
+            .sort((a, b) => b.duration - a.duration)
+            .slice(0, 20);
+
+        const maxDuration = Math.max(...sortedResources.map(r => r.duration));
+        const waterfallWidth = 100;
+        const rowHeight = 8;
+
+        sortedResources.forEach((resource, index) => {
+            const resourceDiv = document.createElement('div');
+            resourceDiv.style.cssText = `
+                position: absolute;
+                left: 0;
+                top: ${index * rowHeight}px;
+                width: ${(resource.duration / maxDuration) * waterfallWidth}%;
+                height: ${rowHeight - 1}px;
+                background: ${getResourceColor(resource.name)};
+                border-radius: 2px;
+                display: flex;
+                align-items: center;
+                padding: 0 8px;
+                font-size: 10px;
+                color: white;
+                font-weight: 500;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            `;
+
+            const resourceName = resource.name.split('/').pop() || resource.name;
+            const duration = Math.round(resource.duration);
+            resourceDiv.textContent = `${resourceName} (${duration}ms)`;
+            resourceDiv.title = `${resourceName}: ${duration}ms`;
+
+            waterfall.appendChild(resourceDiv);
+        });
+
+        container.appendChild(title);
+        container.appendChild(waterfall);
+        return container;
+    }
+
+    function getResourceColor(url) {
+        const extension = url.split('.').pop()?.toLowerCase();
+        const colors = {
+            'js': '#f59e0b',
+            'css': '#4299e1',
+            'png': '#38b2ac',
+            'jpg': '#38b2ac',
+            'jpeg': '#38b2ac',
+            'gif': '#38b2ac',
+            'svg': '#38b2ac',
+            'woff': '#9f7aea',
+            'woff2': '#9f7aea',
+            'ttf': '#9f7aea',
+            'html': '#48bb78',
+            'json': '#ed8936',
+            'xml': '#ed8936'
+        };
+        return colors[extension] || '#718096';
+    }
+function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    function getColorClass(value, good, bad) {
+            if (value <= good) return 'good';
+            if (value <= bad) return 'medium';
+            return 'bad';
+        }
+
+    function closeOverlay() {
+        const overlay = document.getElementById('perf-tracker-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+    }
+
+    function toggleDarkMode() {
+        const overlay = document.getElementById('perf-tracker-overlay');
+        const darkBtn = document.getElementById('perf-dark-btn');
+        
+        if (overlay.classList.contains('dark-mode')) {
+            overlay.classList.remove('dark-mode');
+            if (darkBtn) darkBtn.innerHTML = '🌙';
+            chrome.storage.sync.set({ darkMode: false });
+        } else {
+            overlay.classList.add('dark-mode');
+            if (darkBtn) darkBtn.innerHTML = '☀️';
+            chrome.storage.sync.set({ darkMode: true });
+        }
+    }
+
     function createOverlay() {
         if (document.getElementById('perf-tracker-overlay')) return;
 
@@ -443,6 +1537,31 @@
         @keyframes slideInLeft {
           from { transform: translateX(-100%); }
           to { transform: translateX(0); }
+        }
+        .perf-header-controls {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          display: flex;
+          gap: 8px;
+          z-index: 2;
+        }
+        .perf-share-btn, .perf-dark-btn, .perf-close {
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          border-radius: 6px;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 14px;
+        }
+        .perf-share-btn:hover, .perf-dark-btn:hover, .perf-close:hover {
+          background: rgba(255,255,255,0.3);
+          transform: scale(1.1);
         }
         .perf-header {
           background: linear-gradient(135deg, ${settings.colorStart} 0%, ${settings.colorEnd} 100%);
@@ -707,7 +1826,11 @@
         }
       </style>
       <div class="perf-header">
-        <button class="perf-close" id="perf-close-btn">×</button>
+        <div class="perf-header-controls">
+          <button class="perf-share-btn" id="perf-share-btn" title="Share Performance Report">📤</button>
+          <button class="perf-dark-btn" id="perf-dark-btn" title="Toggle Dark Mode">🌙</button>
+          <button class="perf-close" id="perf-close-btn">×</button>
+        </div>
         <div class="perf-header-content">
           <h3><span>⚡</span> Performance Analytics</h3>
           <p>Real-time page performance monitoring</p>
@@ -719,18 +1842,67 @@
           <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
           <div style="font-size: 14px;">Loading performance data...</div>
         </div>
+      <div class="perf-section">
+        <div class="perf-section-title">📊 Resource Breakdown</div>
+        <div class="perf-resource-list">
+          ${Object.entries(metricsData.resourcesByType)
+                .sort((a, b) => b[1].count - a[1].count)
+                .map(([type, data]) => `
+            <div class="perf-resource-item">
+              <div class="perf-resource-type">
+                <span>${type}</span>
+                <span class="perf-resource-badge">${data.count}</span>
+              </div>
+              <div class="perf-resource-stats">${formatBytes(data.transferSize)}</div>
+            </div>
+          `).join('')}
+        </div>
       </div>
-    `;
+    </div>
+  `;
+
+        if (metricsData && metricsData.resources && metricsData.resources.length > 0) {
+            try {
+                const waterfallSection = createNetworkWaterfall(metricsData.resources);
+                if (waterfallSection && overlay) {
+                    overlay.innerHTML += waterfallSection.outerHTML;
+                }
+            } catch (error) {
+                console.error('Error creating waterfall:', error);
+            }
+        }
 
         document.body.appendChild(overlay);
 
-        document.getElementById('perf-close-btn').addEventListener('click', hideOverlay);
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && overlayVisible) {
-                hideOverlay();
+        try {
+            const closeBtn = document.getElementById('perf-close-btn');
+            const shareBtn = document.getElementById('perf-share-btn');
+            const darkBtn = document.getElementById('perf-dark-btn');
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeOverlay);
             }
-        });
+            
+            if (shareBtn) {
+                shareBtn.addEventListener('click', sharePerformanceReport);
+            }
+            
+            if (darkBtn) {
+                darkBtn.addEventListener('click', toggleDarkMode);
+            }
+        } catch (error) {
+            console.error('Error adding header button listeners:', error);
+        }
+
+        try {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeOverlay();
+                }
+            });
+        } catch (error) {
+            console.error('Error setting up keyboard listener:', error);
+        }
     }
 
     function showOverlay() {
@@ -769,20 +1941,6 @@
         if (!content || !metricsData) return;
 
         const m = metricsData;
-
-        function getColorClass(value, good, bad) {
-            if (value <= good) return 'good';
-            if (value <= bad) return 'medium';
-            return 'bad';
-        }
-
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-        }
 
         function calculateScore() {
             let score = 100;
@@ -1156,6 +2314,20 @@
                     createFloatingButton();
                 }
             });
+        }
+    });
+
+    chrome.storage.sync.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'sync') {
+            if (changes.enableFab) {
+                const existingFab = document.getElementById('perf-tracker-fab');
+                if (existingFab) {
+                    existingFab.remove();
+                }
+                if (changes.enableFab.newValue && isSiteAllowed()) {
+                    createFloatingButton();
+                }
+            }
         }
     });
 
